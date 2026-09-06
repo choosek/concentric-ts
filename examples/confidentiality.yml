@@ -1,0 +1,25 @@
+# Add this to your contracts repository as
+# .github/workflows/confidentiality.yml. On every pull request it runs
+# Concentric over ./contracts, uploads the findings to the Security tab
+# (code scanning), and fails the check if any HIGH-severity leak is present.
+name: Confidentiality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write # required to upload SARIF to code scanning
+
+jobs:
+  concentric:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Concentric confidentiality analysis
+        uses: choosek/concentric-ts@v0
+        with:
+          path: contracts
+          fail-on: high

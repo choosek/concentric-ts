@@ -1,0 +1,44 @@
+name: version-publish
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+concurrency:
+  group: "publish"
+  cancel-in-progress: true
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      should_publish: ${{ steps.version.outputs.local_version_is_higher }}
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.local_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install
+      - id: version
+        run: pnpm exec tsx bin/version.ts
+  publish:
+    needs: version
+    if: needs.version.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install
+      - run: pnpm attw
+      - run: pnpm build
+      - run: pnpm publish --tag ${{ needs.version.outputs.tag }} --no-git-checks

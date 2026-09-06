@@ -1,0 +1,59 @@
+name: "Concentric"
+description: "Static confidentiality analysis for Arc Privacy Sector Solidity contracts. Fails a pull request when confidential state can leak, and uploads results to code scanning."
+author: "choosek"
+branding:
+  icon: "eye-off"
+  color: "blue"
+
+inputs:
+  path:
+    description: "Path to the contracts directory to analyze."
+    required: false
+    default: "contracts"
+  fail-on:
+    description: "Fail the check when a finding at or above this severity is present (high, medium, low, info)."
+    required: false
+    default: "high"
+  disable:
+    description: "Comma-separated rule ids to disable, e.g. APS-6,APS-9."
+    required: false
+    default: ""
+  upload-sarif:
+    description: "Upload the SARIF report to GitHub code scanning."
+    required: false
+    default: "true"
+  version:
+    description: "Version (npm dist-tag or semver) of @choosek/concentric to run."
+    required: false
+    default: "latest"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Analyze confidentiality (SARIF)
+      shell: bash
+      # Produce the SARIF report for code scanning. Do not fail here — the
+      # threshold is enforced in the final step so the report always uploads.
+      run: |
+        npx --yes "@choosek/concentric@${{ inputs.version }}" check "${{ inputs.path }}" \
+          --disable "${{ inputs.disable }}" --sarif > concentric.sarif || true
+
+    - name: Upload SARIF to code scanning
+      if: ${{ inputs.upload-sarif == 'true' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: concentric.sarif
+        category: concentric
+
+    - name: Report and enforce threshold
+      shell: bash
+      # Print the human-readable report to the log and set the exit code: a
+      # finding at or above `fail-on` fails the check and blocks the merge.
+      run: |
+        npx --yes "@choosek/concentric@${{ inputs.version }}" check "${{ inputs.path }}" \
+          --disable "${{ inputs.disable }}" --fail-on "${{ inputs.fail-on }}"
