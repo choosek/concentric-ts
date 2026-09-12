@@ -34,6 +34,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "prepack": "tsup",
     "test": "vitest run",
     "lint": "biome check",
     "typecheck": "tsc",
